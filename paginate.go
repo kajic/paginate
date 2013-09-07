@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	DESC int = iota
-	ASC
+	ASC  = 1
+	DESC = 2
 )
 
 type Item interface {
