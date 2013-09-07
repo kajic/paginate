@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 const (
@@ -50,6 +51,46 @@ type Cursor struct {
 	Direction int
 }
 
+func NewCursorFromQuery(query string) (Cursor, error) {
+	c := Cursor{}
+	m, err := url.ParseQuery(query)
+	if err != nil {
+		return c, err
+	}
+
+	if v, ok := m["value"]; ok {
+		c.Value = v[0]
+	}
+	if v, ok := m["offset"]; ok {
+		offset, err := strconv.Atoi(v[0])
+		if err != nil {
+			return c, err
+		}
+		c.Offset = offset
+	}
+	if v, ok := m["count"]; ok {
+		count, err := strconv.Atoi(v[0])
+		if err != nil {
+			return c, err
+		}
+		c.Count = count
+	}
+	if v, ok := m["order"]; ok {
+		c.Order = v[0]
+	}
+	if v, ok := m["direction"]; ok {
+		switch {
+		case v[0] == "desc":
+			c.Direction = DESC
+		case v[0] == "asc":
+			c.Direction = ASC
+		default:
+			return c, fmt.Errorf("'%s' in not a supported direction, use asc or desc", v)
+		}
+	}
+	return c, nil
+}
+
 type Pagination struct {
 	Cursor
 	config Config
@@ -84,10 +125,6 @@ func NewPagination(cursor Cursor, config Config) *Pagination {
 		cursor.Direction = config.direction
 	}
 	return &Pagination{cursor, config}
-}
-
-func NewPaginationFromUrl(u *url.URL, c Config) Pagination {
-	return Pagination{config: c}
 }
 
 func (p *Pagination) after(items Interface, last, direction int) *Pagination {
@@ -146,4 +183,25 @@ func main() {
 
 	fmt.Printf("next value: %i, offset: %i, direction: %i\n", next.Value, next.Offset, next.Direction)
 	fmt.Printf("prev value: %i, offset: %i, direction: %i\n", prev.Value, prev.Offset, prev.Direction)
+
+	query := "order=updated_at&direction=desc&value=5&offset=0&count=5"
+	cursor, err := NewCursorFromQuery(query)
+	if err != nil {
+		panic(err)
+	}
+	pagination = NewPagination(cursor, config)
+
+	items = &Page{[]Item{
+		&Comment{"e", 3, 5},
+		&Comment{"d", 3, 5},
+		&Comment{"c", 2, 5},
+		&Comment{"b", 1, 4},
+		&Comment{"a", 0, 4},
+	}}
+	next = pagination.next(items)
+	prev = pagination.prev(items)
+
+	fmt.Printf("next value: %i, offset: %i, direction: %i\n", next.Value, next.Offset, next.Direction)
+	fmt.Printf("prev value: %i, offset: %i, direction: %i\n", prev.Value, prev.Offset, prev.Direction)
+
 }
