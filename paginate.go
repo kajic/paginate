@@ -136,13 +136,14 @@ func NewPagination(cursor Cursor, config Config) *Pagination {
 }
 
 func (p *Pagination) after(items Interface, last, direction int) *Pagination {
+	if items.Len() == 0 {
+		return nil
+	}
 	value := items.Value(p.Order, last)
 	offset := p.equalCount(items, p.Order, last)
-
 	if offset == p.Count && value == p.Value {
 		offset += p.Offset
 	}
-
 	cursor := Cursor{value, offset, p.Count, p.Order, direction}
 	return &Pagination{cursor, p.config}
 }
@@ -152,7 +153,10 @@ func (p *Pagination) prev(items Interface) *Pagination {
 	return p.after(items, min, p.Direction*-1)
 }
 
-func (p *Pagination) next(items Interface) *Pagination {
+func (p *Pagination) next(items Interface, next_page_prefetched bool) *Pagination {
+	if next_page_prefetched && items.Len() <= p.Count {
+		return nil
+	}
 	max := p.max(items)
 	return p.after(items, max, p.Direction)
 }
@@ -200,16 +204,16 @@ func main() {
 	cursor := Cursor{Order: "created_at"}
 	config := Config{count: 2, order: "updated_at", direction: DESC}
 	pagination := NewPagination(cursor, config)
-	next := pagination.next(items)
+	next := pagination.next(items, true)
 	prev := pagination.prev(items)
 
 	fmt.Printf("next value: %i, offset: %i, direction: %i\n", next.Value, next.Offset, next.Direction)
 	fmt.Printf("prev value: %i, offset: %i, direction: %i\n", prev.Value, prev.Offset, prev.Direction)
 
-	u, _ := url.Parse("http://kajic.com?order=updated_at&direction=desc&value=5&offset=0&count=5")
+	u, _ := url.Parse("http://kajic.com?order=updated_at&direction=desc&value=5&offset=0&count=4")
 	cursor, _ = NewCursorFromQuery(u.RawQuery)
 	pagination = NewPagination(cursor, config)
-	next = pagination.next(items)
+	next = pagination.next(items, true)
 	prev = pagination.prev(items)
 
 	u, _ = next.addToUrl(u)
