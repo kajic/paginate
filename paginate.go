@@ -57,7 +57,7 @@ func (p *Pagination) max(items Interface) int {
 	if items.Len() <= p.config.pageSize {
 		return items.Len() - 1
 	} else {
-		return p.config.pageSize - 1
+		return p.config.pageSize
 	}
 }
 
