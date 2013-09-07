@@ -11,12 +11,12 @@ const (
 )
 
 type Item interface {
-	PaginationValue(key string) interface{}
+	OrderValue(key string) string
 }
 
 type Interface interface {
 	Equal(order string, i, j int) bool
-	Value(order string, i int) interface{}
+	Value(order string, i int) string
 	Len() int
 }
 
@@ -28,8 +28,8 @@ func (p *Page) Equal(order string, i, j int) bool {
 	return p.Value(order, i) == p.Value(order, j)
 }
 
-func (p *Page) Value(order string, i int) interface{} {
-	return p.items[i].PaginationValue(order)
+func (p *Page) Value(order string, i int) string {
+	return p.items[i].OrderValue(order)
 }
 
 func (p *Page) Len() int {
@@ -43,7 +43,7 @@ type Config struct {
 }
 
 type Cursor struct {
-	Value     interface{}
+	Value     string
 	Offset    int
 	Order     string
 	Direction int
@@ -114,14 +114,14 @@ type Comment struct {
 	updated_at int
 }
 
-func (c *Comment) PaginationValue(key string) interface{} {
+func (c *Comment) OrderValue(order string) string {
 	switch {
-	case key == "created_at":
-		return c.created_at
-	case key == "updated_at":
-		return c.updated_at
+	case order == "created_at":
+		return strconv.Itoa(c.created_at)
+	case order == "updated_at":
+		return strconv.Itoa(c.updated_at)
 	default:
-		return nil
+		return ""
 	}
 }
 
