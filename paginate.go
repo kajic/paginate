@@ -37,7 +37,7 @@ func (p *Page) Len() int {
 }
 
 type Config struct {
-	pageSize  int
+	count     int
 	order     string
 	direction int
 }
@@ -45,6 +45,7 @@ type Config struct {
 type Cursor struct {
 	Value     string
 	Offset    int
+	Count     int
 	Order     string
 	Direction int
 }
@@ -55,16 +56,16 @@ type Pagination struct {
 }
 
 func (p *Pagination) max(items Interface) int {
-	if items.Len() <= p.config.pageSize {
+	if items.Len() <= p.Count {
 		return items.Len() - 1
 	} else {
-		return p.config.pageSize
+		return p.Count
 	}
 }
 
 func (p *Pagination) equalCount(items Interface, order string, max int) int {
 	c := 0
-	for i := 0; i < p.config.pageSize; i++ {
+	for i := 0; i < p.Count; i++ {
 		if items.Equal(order, i, max) {
 			c += 1
 		}
@@ -73,6 +74,9 @@ func (p *Pagination) equalCount(items Interface, order string, max int) int {
 }
 
 func NewPagination(cursor Cursor, config Config) *Pagination {
+	if cursor.Count == 0 {
+		cursor.Count = config.count
+	}
 	if cursor.Order == "" {
 		cursor.Order = config.order
 	}
@@ -90,11 +94,11 @@ func (p *Pagination) after(items Interface, last, direction int) *Pagination {
 	value := items.Value(p.Order, last)
 	offset := p.equalCount(items, p.Order, last)
 
-	if offset == p.config.pageSize && value == p.Value {
+	if offset == p.Count && value == p.Value {
 		offset += p.Offset
 	}
 
-	cursor := Cursor{value, offset, p.Order, direction}
+	cursor := Cursor{value, offset, p.Count, p.Order, direction}
 	return &Pagination{cursor, p.config}
 }
 
@@ -127,7 +131,7 @@ func (c *Comment) OrderValue(order string) string {
 
 func main() {
 	cursor := Cursor{Order: "created_at"}
-	config := Config{pageSize: 2, order: "updated_at", direction: DESC}
+	config := Config{count: 2, order: "updated_at", direction: DESC}
 	pagination := NewPagination(cursor, config)
 
 	items := &Page{[]Item{
