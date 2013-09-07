@@ -135,6 +135,14 @@ func NewPagination(cursor Cursor, config Config) *Pagination {
 	return &Pagination{cursor, config}
 }
 
+func FromUrl(rawurl *url.URL, config Config) (*Pagination, error) {
+	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
+	if err != nil {
+		return nil, err
+	}
+	return &Pagination{cursor, config}, nil
+}
+
 func (p *Pagination) after(items Interface, last, direction int) *Pagination {
 	if items.Len() == 0 {
 		return nil
@@ -197,6 +205,9 @@ func (c *Comment) OrderValue(order string) string {
 }
 
 func main() {
+	u, _ := url.Parse("http://kajic.com?order=updated_at&direction=desc&value=5&offset=0&count=4")
+	config := Config{count: 2, order: "updated_at", direction: DESC}
+	pagination, _ := FromUrl(u, config)
 	items := &Page{[]Item{
 		&Comment{"e", 3, 5},
 		&Comment{"d", 3, 5},
@@ -204,25 +215,10 @@ func main() {
 		&Comment{"b", 1, 4},
 		&Comment{"a", 0, 4},
 	}}
-
-	cursor := Cursor{Order: "created_at"}
-	config := Config{count: 2, order: "updated_at", direction: DESC}
-	pagination := NewPagination(cursor, config)
 	next := pagination.next(items, true)
 	prev := pagination.prev(items)
-
-	fmt.Printf("next value: %i, offset: %i, direction: %i\n", next.Value, next.Offset, next.Direction)
-	fmt.Printf("prev value: %i, offset: %i, direction: %i\n", prev.Value, prev.Offset, prev.Direction)
-
-	u, _ := url.Parse("http://kajic.com?order=updated_at&direction=desc&value=5&offset=0&count=4")
-	cursor, _ = NewCursorFromQuery(u.RawQuery)
-	pagination = NewPagination(cursor, config)
-	next = pagination.next(items, true)
-	prev = pagination.prev(items)
-
 	nexturl, _ := next.toUrl(u)
 	prevurl, _ := prev.toUrl(u)
-	fmt.Println("nexturl", nexturl)
-	fmt.Println("prevurl", prevurl)
-	fmt.Println("origurl", u)
+	fmt.Println("next", nexturl)
+	fmt.Println("prev", prevurl)
 }
