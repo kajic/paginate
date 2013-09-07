@@ -43,9 +43,10 @@ type Config struct {
 }
 
 type Cursor struct {
-	Value  interface{}
-	Offset int
-	Order  string
+	Value     interface{}
+	Offset    int
+	Order     string
+	Direction int
 }
 
 type Pagination struct {
@@ -94,7 +95,8 @@ func (p *Pagination) next(items Interface) *Pagination {
 		offset += p.Offset
 	}
 
-	return &Pagination{Cursor{value, offset, p.Order}, p.config}
+	cursor := Cursor{value, offset, p.Order, p.Direction}
+	return &Pagination{cursor, p.config}
 }
 
 type Comment struct {
@@ -115,13 +117,16 @@ func (c *Comment) PaginationValue(key string) interface{} {
 }
 
 func main() {
-	pagination := Pagination{config: Config{pageSize: 2, order: "created_at"}}
+	cursor := Cursor{Order: "created_at"}
+	config := Config{pageSize: 2, order: "updated_at", direction: DESC}
+	pagination := NewPagination(cursor, config)
 
 	items := &Page{[]Item{
 		&Comment{"a", 0, 4},
 		&Comment{"b", 1, 4},
 		&Comment{"c", 2, 5},
 		&Comment{"d", 3, 5},
+		&Comment{"e", 3, 5},
 	}}
 	next := pagination.next(items)
 
