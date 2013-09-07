@@ -94,7 +94,14 @@ type Comment struct {
 }
 
 func (c *Comment) PaginationValue(key string) interface{} {
-	return c.updated_at
+	switch {
+	case key == "created_at":
+		return c.created_at
+	case key == "updated_at":
+		return c.updated_at
+	default:
+		return nil
+	}
 }
 
 func main() {
