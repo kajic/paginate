@@ -86,17 +86,26 @@ func NewPaginationFromUrl(u *url.URL, c Config) Pagination {
 	return Pagination{config: c}
 }
 
-func (p *Pagination) next(items Interface) *Pagination {
-	max := p.max(items)
-	value := items.Value(p.Order, max)
-	offset := p.equalCount(items, p.Order, max)
+func (p *Pagination) after(items Interface, last, direction int) *Pagination {
+	value := items.Value(p.Order, last)
+	offset := p.equalCount(items, p.Order, last)
 
 	if offset == p.config.pageSize && value == p.Value {
 		offset += p.Offset
 	}
 
-	cursor := Cursor{value, offset, p.Order, p.Direction}
+	cursor := Cursor{value, offset, p.Order, direction}
 	return &Pagination{cursor, p.config}
+}
+
+func (p *Pagination) prev(items Interface) *Pagination {
+	min := 0
+	return p.after(items, min, p.Direction*-1)
+}
+
+func (p *Pagination) next(items Interface) *Pagination {
+	max := p.max(items)
+	return p.after(items, max, p.Direction)
 }
 
 type Comment struct {
@@ -122,13 +131,15 @@ func main() {
 	pagination := NewPagination(cursor, config)
 
 	items := &Page{[]Item{
-		&Comment{"a", 0, 4},
-		&Comment{"b", 1, 4},
-		&Comment{"c", 2, 5},
-		&Comment{"d", 3, 5},
 		&Comment{"e", 3, 5},
+		&Comment{"d", 3, 5},
+		&Comment{"c", 2, 5},
+		&Comment{"b", 1, 4},
+		&Comment{"a", 0, 4},
 	}}
 	next := pagination.next(items)
+	prev := pagination.prev(items)
 
-	fmt.Printf("next value: %i, offset: %i\n", next.Value, next.Offset)
+	fmt.Printf("next value: %i, offset: %i, direction: %i\n", next.Value, next.Offset, next.Direction)
+	fmt.Printf("prev value: %i, offset: %i, direction: %i\n", prev.Value, prev.Offset, prev.Direction)
 }
