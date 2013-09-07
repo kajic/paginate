@@ -12,7 +12,7 @@ const (
 )
 
 type Item interface {
-	OrderValue(key string) string
+	OrderValue(order string) string
 }
 
 type Interface interface {
