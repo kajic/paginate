@@ -7,7 +7,7 @@ import (
 
 const (
 	ASC  = 1
-	DESC = 2
+	DESC = -1
 )
 
 type Item interface {
