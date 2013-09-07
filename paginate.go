@@ -161,8 +161,8 @@ func (p *Pagination) next(items Interface, next_page_prefetched bool) *Paginatio
 	return p.after(items, max, p.Direction)
 }
 
-func (p *Pagination) addToUrl(u *url.URL) (*url.URL, error) {
-	query, err := url.ParseQuery(u.RawQuery)
+func (p *Pagination) toUrl(baseurl *url.URL) (*url.URL, error) {
+	query, err := url.ParseQuery(baseurl.RawQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +171,12 @@ func (p *Pagination) addToUrl(u *url.URL) (*url.URL, error) {
 	query.Set("count", strconv.Itoa(p.Count))
 	query.Set("order", p.Order)
 	query.Set("direction", p.DirectionString())
-	u.RawQuery = query.Encode()
-	return u, nil
+	newurl, err := url.Parse(baseurl.String())
+	if err != nil {
+		return nil, err
+	}
+	newurl.RawQuery = query.Encode()
+	return newurl, nil
 }
 
 type Comment struct {
@@ -216,8 +220,9 @@ func main() {
 	next = pagination.next(items, true)
 	prev = pagination.prev(items)
 
-	u, _ = next.addToUrl(u)
-	fmt.Println(u)
-	u, _ = prev.addToUrl(u)
-	fmt.Println(u)
+	nexturl, _ := next.toUrl(u)
+	prevurl, _ := prev.toUrl(u)
+	fmt.Println("nexturl", nexturl)
+	fmt.Println("prevurl", prevurl)
+	fmt.Println("origurl", u)
 }
