@@ -71,6 +71,16 @@ func (p *Pagination) equalCount(items Interface, order string, max int) int {
 	return c
 }
 
+func NewPagination(cursor Cursor, config Config) *Pagination {
+	if cursor.Order == "" {
+		cursor.Order = config.order
+	}
+	if cursor.Direction == 0 {
+		cursor.Direction = config.direction
+	}
+	return &Pagination{cursor, config}
+}
+
 func NewPaginationFromUrl(u *url.URL, c Config) Pagination {
 	return Pagination{config: c}
 }
