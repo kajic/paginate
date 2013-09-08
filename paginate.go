@@ -1,4 +1,4 @@
-package main
+package paginate
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type Interface interface {
 }
 
 type Page struct {
-	items []Item
+	Items []Item
 }
 
 func (p *Page) Equal(order string, i, j int) bool {
@@ -30,17 +30,17 @@ func (p *Page) Equal(order string, i, j int) bool {
 }
 
 func (p *Page) Value(order string, i int) string {
-	return p.items[i].OrderValue(order)
+	return p.Items[i].OrderValue(order)
 }
 
 func (p *Page) Len() int {
-	return len(p.items)
+	return len(p.Items)
 }
 
 type Config struct {
-	count     int
-	order     string
-	direction int
+	Count     int
+	Order     string
+	Direction int
 }
 
 type Cursor struct {
@@ -124,13 +124,13 @@ func (p *Pagination) equalCount(items Interface, order string, max int) int {
 
 func NewPagination(cursor Cursor, config Config) *Pagination {
 	if cursor.Count == 0 {
-		cursor.Count = config.count
+		cursor.Count = config.Count
 	}
 	if cursor.Order == "" {
-		cursor.Order = config.order
+		cursor.Order = config.Order
 	}
 	if cursor.Direction == 0 {
-		cursor.Direction = config.direction
+		cursor.Direction = config.Direction
 	}
 	return &Pagination{cursor, config}
 }
@@ -156,12 +156,12 @@ func (p *Pagination) after(items Interface, last, direction int) *Pagination {
 	return &Pagination{cursor, p.config}
 }
 
-func (p *Pagination) prev(items Interface) *Pagination {
+func (p *Pagination) Prev(items Interface) *Pagination {
 	min := 0
 	return p.after(items, min, p.Direction*-1)
 }
 
-func (p *Pagination) next(items Interface, next_page_prefetched bool) *Pagination {
+func (p *Pagination) Next(items Interface, next_page_prefetched bool) *Pagination {
 	if next_page_prefetched && items.Len() <= p.Count {
 		return nil
 	}
@@ -169,7 +169,7 @@ func (p *Pagination) next(items Interface, next_page_prefetched bool) *Paginatio
 	return p.after(items, max, p.Direction)
 }
 
-func (p *Pagination) toUrl(baseurl *url.URL) (*url.URL, error) {
+func (p *Pagination) ToUrl(baseurl *url.URL) (*url.URL, error) {
 	query, err := url.ParseQuery(baseurl.RawQuery)
 	if err != nil {
 		return nil, err
@@ -185,40 +185,4 @@ func (p *Pagination) toUrl(baseurl *url.URL) (*url.URL, error) {
 	}
 	newurl.RawQuery = query.Encode()
 	return newurl, nil
-}
-
-type Comment struct {
-	text       string
-	created_at int
-	updated_at int
-}
-
-func (c *Comment) OrderValue(order string) string {
-	switch {
-	case order == "created_at":
-		return strconv.Itoa(c.created_at)
-	case order == "updated_at":
-		return strconv.Itoa(c.updated_at)
-	default:
-		return ""
-	}
-}
-
-func main() {
-	u, _ := url.Parse("http://kajic.com?order=updated_at&direction=desc&value=5&offset=0&count=4")
-	config := Config{count: 2, order: "updated_at", direction: DESC}
-	pagination, _ := FromUrl(u, config)
-	items := &Page{[]Item{
-		&Comment{"e", 3, 5},
-		&Comment{"d", 3, 5},
-		&Comment{"c", 2, 5},
-		&Comment{"b", 1, 4},
-		&Comment{"a", 0, 4},
-	}}
-	next := pagination.next(items, true)
-	prev := pagination.prev(items)
-	nexturl, _ := next.toUrl(u)
-	prevurl, _ := prev.toUrl(u)
-	fmt.Println("next", nexturl)
-	fmt.Println("prev", prevurl)
 }
