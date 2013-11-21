@@ -37,12 +37,6 @@ func (p *Page) Len() int {
 	return len(p.Items)
 }
 
-type Config struct {
-	Count     int
-	Order     string
-	Direction int
-}
-
 type Cursor struct {
 	Value     string
 	Offset    int
@@ -50,6 +44,8 @@ type Cursor struct {
 	Order     string
 	Direction int
 }
+
+type Config Cursor
 
 func (c Cursor) DirectionString() string {
 	if c.Direction == ASC {
@@ -123,6 +119,12 @@ func (p *Pagination) equalCount(items Interface, order string, max int) int {
 }
 
 func NewPagination(cursor Cursor, config Config) *Pagination {
+	if cursor.Value == "" {
+		cursor.Value = config.Value
+	}
+	if cursor.Offset == 0 {
+		cursor.Offset = config.Offset
+	}
 	if cursor.Count == 0 {
 		cursor.Count = config.Count
 	}
@@ -140,7 +142,7 @@ func FromUrl(rawurl *url.URL, config Config) (*Pagination, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Pagination{cursor, config}, nil
+	return NewPagination(cursor, config), nil
 }
 
 func (p *Pagination) after(items Interface, last, direction int) *Pagination {
@@ -153,7 +155,7 @@ func (p *Pagination) after(items Interface, last, direction int) *Pagination {
 		offset += p.Offset
 	}
 	cursor := Cursor{value, offset, p.Count, p.Order, direction}
-	return &Pagination{cursor, p.config}
+	return NewPagination(cursor, p.config)
 }
 
 func (p *Pagination) Prev(items Interface) *Pagination {
