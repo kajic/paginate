@@ -36,7 +36,7 @@ func OpenDatabase(driver, addr string) (*sql.DB, error) {
 	return db, db.Ping()
 }
 
-func GetComments(p *paginate.Pagination) ([]paginate.Pager, error) {
+func GetComments(p *paginate.Pagination) ([]paginate.Item, error) {
 	var where string
 	if p.Direction == paginate.ASC {
 		where = fmt.Sprintf("%s >= %s", p.Order, p.Value)
@@ -69,7 +69,7 @@ func GetComments(p *paginate.Pagination) ([]paginate.Pager, error) {
 		return nil, err
 	}
 
-	var items []paginate.Pager
+	var items []paginate.Item
 	for rows.Next() {
 		var c *Comment
 		if err := rows.Scan(&c.text, &c.created_at, &c.updated_at); err != nil {

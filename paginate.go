@@ -11,7 +11,7 @@ const (
 	DESC = -1
 )
 
-type Pager interface {
+type Item interface {
 	PaginationValue(p *Pagination) string
 }
 
@@ -69,7 +69,7 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 	return c, nil
 }
 
-func (p *Pagination) max(items []Pager) int {
+func (p *Pagination) max(items []Item) int {
 	if len(items) <= p.Count {
 		return len(items) - 1
 	} else {
@@ -77,7 +77,7 @@ func (p *Pagination) max(items []Pager) int {
 	}
 }
 
-func (p *Pagination) equalCount(items []Pager, max int) int {
+func (p *Pagination) equalCount(items []Item, max int) int {
 	c := 0
 	for i := 0; i < p.Count; i++ {
 		if items[i].PaginationValue(p) == items[max].PaginationValue(p) {
@@ -114,7 +114,7 @@ func FromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, error) {
 	return NewPagination(cursor, defaults), nil
 }
 
-func (p *Pagination) after(items []Pager, last, direction int) *Pagination {
+func (p *Pagination) after(items []Item, last, direction int) *Pagination {
 	if len(items) == 0 {
 		return nil
 	}
@@ -127,12 +127,12 @@ func (p *Pagination) after(items []Pager, last, direction int) *Pagination {
 	return NewPagination(cursor, p.defaults)
 }
 
-func (p *Pagination) Prev(items []Pager) *Pagination {
+func (p *Pagination) Prev(items []Item) *Pagination {
 	min := 0
 	return p.after(items, min, p.Direction*-1)
 }
 
-func (p *Pagination) Next(items []Pager, next_page_prefetched bool) *Pagination {
+func (p *Pagination) Next(items []Item, next_page_prefetched bool) *Pagination {
 	if next_page_prefetched && len(items) <= p.Count {
 		return nil
 	}
