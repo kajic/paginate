@@ -86,16 +86,15 @@ func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	// 2. Query data source based on request parameters.
 	items, _ := GetComments(p)
 
-	// 3. Create pagination urls based on data.
+	// 3. Create pagination urls based on returned items.
 	next := p.Next(items, true)
 	prev := p.Prev(items)
 
-	// 4. Respond with data and pagination urls.
+	// 4. Respond with items and pagination urls.
 	comments := make([]*Comment, len(items))
 	for i, item := range items {
 		comments[i] = item.(*Comment)
 	}
-
 	fmt.Fprint(w, comments)
 	if next != nil {
 		nexturl, _ := next.ToUrl(r.URL)
