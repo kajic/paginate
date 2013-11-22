@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/kajic/paginate"
 )
 
@@ -26,12 +28,12 @@ func (c *Comment) PaginationValue(p *paginate.Pagination) string {
 	}
 }
 
-func OpenDatabase(addr string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", addr)
+func OpenDatabase(driver, addr string) (*sql.DB, error) {
+	db, err := sql.Open(driver, addr)
 	if err != nil {
 		return nil, err
 	}
-	return db, nil
+	return db, db.Ping()
 }
 
 func GetComments(p *paginate.Pagination) ([]paginate.Pager, error) {
@@ -56,7 +58,7 @@ func GetComments(p *paginate.Pagination) ([]paginate.Pager, error) {
 	ORDER BY ` + order + `
 	LIMIT ?, ?
 	`
-	db, err := OpenDatabase("database url")
+	db, err := OpenDatabase("sqlite3", ":memory:")
 	if err != nil {
 		return nil, err
 	}
