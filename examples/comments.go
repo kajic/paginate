@@ -15,11 +15,11 @@ type Comment struct {
 	updated_at int
 }
 
-func (c *Comment) OrderValue(order string) string {
+func (c *Comment) PaginationValue(p *paginate.Pagination) string {
 	switch {
-	case order == "created_at":
+	case p.Order == "created_at":
 		return strconv.Itoa(c.created_at)
-	case order == "updated_at":
+	case p.Order == "updated_at":
 		return strconv.Itoa(c.updated_at)
 	default:
 		return ""
@@ -34,14 +34,20 @@ func OpenDatabase(addr string) (*sql.DB, error) {
 	return db, nil
 }
 
-func GetComments(p *paginate.Pagination) []paginate.Item {
+func GetComments(p *paginate.Pagination) ([]paginate.Pager, error) {
 	var where string
 	if p.Direction == paginate.ASC {
 		where = fmt.Sprintf("%s >= %s", p.Order, p.Value)
 	} else {
 		where = fmt.Sprintf("%s <= %s", p.Order, p.Value)
 	}
-	order := fmt.Sprintf("%s %s", p.Order, p.DirectionString())
+	var direction string
+	if p.Direction == paginate.ASC {
+		direction = "ASC"
+	} else {
+		direction = "DESC"
+	}
+	order := fmt.Sprintf("%s %s", p.Order, direction)
 
 	q := `
 	SELECT text, created_at, updated_at
@@ -50,10 +56,18 @@ func GetComments(p *paginate.Pagination) []paginate.Item {
 	ORDER BY ` + order + `
 	LIMIT ?, ?
 	`
-	db, _ := OpenDatabase("database url")
-	rows, _ := db.Query(q, p.Offset, p.Count+1)
+	db, err := OpenDatabase("database url")
+	if err != nil {
+		return nil, err
+	}
+	// Note we fech an additional item to allow the pagination library to immedialely determine
+	// if there is a next page after the current one.
+	rows, err := db.Query(q, p.Offset, p.Count+1)
+	if err != nil {
+		return nil, err
+	}
 
-	var items []paginate.Item
+	var items []paginate.Pager
 	for rows.Next() {
 		var c *Comment
 		if err := rows.Scan(&c.text, &c.created_at, &c.updated_at); err != nil {
@@ -61,22 +75,27 @@ func GetComments(p *paginate.Pagination) []paginate.Item {
 		}
 		items = append(items, c)
 	}
-	return items
+	return items, nil
 }
 
 func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Create pagination object based on request url.
-	c := paginate.Config{Count: 5, Order: "updated_at", Direction: paginate.DESC}
+	c := paginate.Cursor{Count: 5, Order: "updated_at", Direction: paginate.DESC}
 	p, _ := paginate.FromUrl(r.URL, c)
 
 	// 2. Query data source based on request parameters.
-	comments := &paginate.Page{GetComments(p)}
+	items, _ := GetComments(p)
 
 	// 3. Create pagination urls based on data.
-	next := p.Next(comments, true)
-	prev := p.Prev(comments)
+	next := p.Next(items, true)
+	prev := p.Prev(items)
 
 	// 4. Respond with data and pagination urls.
+	comments := make([]*Comment, len(items))
+	for i, item := range items {
+		comments[i] = item.(*Comment)
+	}
+
 	fmt.Fprint(w, comments)
 	if next != nil {
 		nexturl, _ := next.ToUrl(r.URL)
