@@ -28,8 +28,25 @@ type Pagination struct {
 	defaults Cursor
 }
 
+func NewCursor(defaults *Cursor) Cursor {
+	var cursor Cursor
+	if defaults == nil {
+		cursor = Cursor{}
+	} else {
+		cursor = *defaults
+	}
+
+	if cursor.Count == 0 {
+		cursor.Count = 10
+	}
+	if cursor.Direction == 0 {
+		cursor.Direction = DESC
+	}
+	return cursor
+}
+
 func NewCursorFromQuery(query string) (Cursor, error) {
-	c := Cursor{}
+	c := NewCursor(nil)
 	m, err := url.ParseQuery(query)
 	if err != nil {
 		return c, err
