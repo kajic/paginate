@@ -11,30 +11,8 @@ const (
 	DESC = -1
 )
 
-type Item interface {
-	OrderValue(order string) string
-}
-
-type Interface interface {
-	Equal(order string, i, j int) bool
-	Value(order string, i int) string
-	Len() int
-}
-
-type Page struct {
-	Items []Item
-}
-
-func (p *Page) Equal(order string, i, j int) bool {
-	return p.Value(order, i) == p.Value(order, j)
-}
-
-func (p *Page) Value(order string, i int) string {
-	return p.Items[i].OrderValue(order)
-}
-
-func (p *Page) Len() int {
-	return len(p.Items)
+type Pager interface {
+	PaginationValue(p *Pagination) string
 }
 
 type Cursor struct {
@@ -45,14 +23,9 @@ type Cursor struct {
 	Direction int
 }
 
-type Config Cursor
-
-func (c Cursor) DirectionString() string {
-	if c.Direction == ASC {
-		return "asc"
-	} else {
-		return "desc"
-	}
+type Pagination struct {
+	Cursor
+	defaults Cursor
 }
 
 func NewCursorFromQuery(query string) (Cursor, error) {
@@ -83,88 +56,84 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 		c.Order = v[0]
 	}
 	if v, ok := m["direction"]; ok {
-		switch {
-		case v[0] == "desc":
-			c.Direction = DESC
-		case v[0] == "asc":
-			c.Direction = ASC
-		default:
-			return c, fmt.Errorf("'%s' in not a supported direction, use asc or desc", v)
+		direction, err := strconv.Atoi(v[0])
+		if err != nil {
+			return c, err
+		}
+		if direction == ASC || direction == DESC {
+			c.Direction = direction
+		} else {
+			return c, fmt.Errorf("'%s' in not a supported direction, use -1 (ASC) or 1 (DESC)", direction)
 		}
 	}
 	return c, nil
 }
 
-type Pagination struct {
-	Cursor
-	config Config
-}
-
-func (p *Pagination) max(items Interface) int {
-	if items.Len() <= p.Count {
-		return items.Len() - 1
+func (p *Pagination) max(items []Pager) int {
+	if len(items) <= p.Count {
+		return len(items) - 1
 	} else {
 		return p.Count
 	}
 }
 
-func (p *Pagination) equalCount(items Interface, order string, max int) int {
+func (p *Pagination) equalCount(items []Pager, max int) int {
 	c := 0
 	for i := 0; i < p.Count; i++ {
-		if items.Equal(order, i, max) {
+		if items[i].PaginationValue(p) == items[max].PaginationValue(p) {
 			c += 1
 		}
 	}
 	return c
 }
 
-func NewPagination(cursor Cursor, config Config) *Pagination {
+func NewPagination(cursor, defaults Cursor) *Pagination {
 	if cursor.Value == "" {
-		cursor.Value = config.Value
+		cursor.Value = defaults.Value
 	}
 	if cursor.Offset == 0 {
-		cursor.Offset = config.Offset
+		cursor.Offset = defaults.Offset
 	}
 	if cursor.Count == 0 {
-		cursor.Count = config.Count
+		cursor.Count = defaults.Count
 	}
 	if cursor.Order == "" {
-		cursor.Order = config.Order
+		cursor.Order = defaults.Order
 	}
 	if cursor.Direction == 0 {
-		cursor.Direction = config.Direction
+		cursor.Direction = defaults.Direction
 	}
-	return &Pagination{cursor, config}
+	return &Pagination{cursor, defaults}
 }
 
-func FromUrl(rawurl *url.URL, config Config) (*Pagination, error) {
+func FromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, error) {
 	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
 	if err != nil {
 		return nil, err
 	}
-	return NewPagination(cursor, config), nil
+	return NewPagination(cursor, defaults), nil
 }
 
-func (p *Pagination) after(items Interface, last, direction int) *Pagination {
-	if items.Len() == 0 {
+func (p *Pagination) after(items []Pager, last, direction int) *Pagination {
+	if len(items) == 0 {
 		return nil
 	}
-	value := items.Value(p.Order, last)
-	offset := p.equalCount(items, p.Order, last)
+	value := items[last].PaginationValue(p)
+	offset := p.equalCount(items, last)
 	if offset == p.Count && value == p.Value {
 		offset += p.Offset
 	}
 	cursor := Cursor{value, offset, p.Count, p.Order, direction}
-	return NewPagination(cursor, p.config)
+	return NewPagination(cursor, p.defaults)
 }
 
-func (p *Pagination) Prev(items Interface) *Pagination {
+func (p *Pagination) Prev(items []Pager) *Pagination {
 	min := 0
 	return p.after(items, min, p.Direction*-1)
 }
 
-func (p *Pagination) Next(items Interface, next_page_prefetched bool) *Pagination {
-	if next_page_prefetched && items.Len() <= p.Count {
+func (p *Pagination) Next(items []Pager, next_page_prefetched bool) *Pagination {
+	if next_page_prefetched && len(items) <= p.Count {
 		return nil
 	}
 	max := p.max(items)
@@ -180,7 +149,7 @@ func (p *Pagination) ToUrl(baseurl *url.URL) (*url.URL, error) {
 	query.Set("offset", strconv.Itoa(p.Offset))
 	query.Set("count", strconv.Itoa(p.Count))
 	query.Set("order", p.Order)
-	query.Set("direction", p.DirectionString())
+	query.Set("direction", strconv.Itoa(p.Direction))
 	newurl, err := url.Parse(baseurl.String())
 	if err != nil {
 		return nil, err
