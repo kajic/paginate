@@ -36,7 +36,7 @@ func OpenDatabase(driver, addr string) (*sql.DB, error) {
 	return db, db.Ping()
 }
 
-func GetComments(p *paginate.Pagination) ([]paginate.Item, error) {
+func GetComments(p *paginate.Pagination) ([]*Comment, error) {
 	var where string
 	if p.Direction == paginate.ASC {
 		where = fmt.Sprintf("%s >= %s", p.Order, p.Value)
@@ -69,7 +69,7 @@ func GetComments(p *paginate.Pagination) ([]paginate.Item, error) {
 		return nil, err
 	}
 
-	var items []paginate.Item
+	var items []*Comment
 	for rows.Next() {
 		var c *Comment
 		if err := rows.Scan(&c.text, &c.created_at, &c.updated_at); err != nil {
@@ -86,17 +86,17 @@ func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	p, _ := paginate.FromUrl(r.URL, c)
 
 	// 2. Query data source based on request parameters.
-	items, _ := GetComments(p)
+	comments, _ := GetComments(p)
 
 	// 3. Create pagination urls based on returned items.
+	items := make([]paginate.Item, len(comments))
+	for i, comment := range comments {
+		items[i] = comment
+	}
 	next := p.Next(items, true)
 	prev := p.Prev(items)
 
 	// 4. Respond with items and pagination urls.
-	comments := make([]*Comment, len(items))
-	for i, item := range items {
-		comments[i] = item.(*Comment)
-	}
 	fmt.Fprint(w, comments)
 	if next != nil {
 		nexturl, _ := next.ToUrl(r.URL)
