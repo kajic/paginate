@@ -42,11 +42,13 @@ func NewCursor(defaults *Cursor) Cursor {
 	return cursor
 }
 
-func NewCursorFromQuery(query string) (Cursor, error) {
 	c := NewCursor(nil)
+func NewCursorFromQuery(query string) (Cursor, []error) {
+	errors := []error{}
 	m, err := url.ParseQuery(query)
 	if err != nil {
-		return c, err
+		errors = append(errors, fmt.Errorf("error when parsing url query string %s: %s", query, err))
+		return c, errors
 	}
 
 	if v, ok := m["value"]; ok {
@@ -55,16 +57,18 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 	if v, ok := m["offset"]; ok {
 		offset, err := strconv.Atoi(v[0])
 		if err != nil {
-			return c, err
+			errors = append(errors, fmt.Errorf("error when parsing offset %s: %s", v[0], err))
+		} else {
+			c.Offset = offset
 		}
-		c.Offset = offset
 	}
 	if v, ok := m["count"]; ok {
 		count, err := strconv.Atoi(v[0])
 		if err != nil {
-			return c, err
+			errors = append(errors, fmt.Errorf("error when parsing count %s: %s", v[0], err))
+		} else {
+			c.Count = count
 		}
-		c.Count = count
 	}
 	if v, ok := m["order"]; ok {
 		c.Order = v[0]
@@ -72,15 +76,16 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 	if v, ok := m["direction"]; ok {
 		direction, err := strconv.Atoi(v[0])
 		if err != nil {
-			return c, err
-		}
-		if direction == ASC || direction == DESC {
-			c.Direction = direction
+			errors = append(errors, fmt.Errorf("error when parsing direction %s: %s", v[0], err))
 		} else {
-			return c, fmt.Errorf("'%s' in not a supported direction, use 0 (DESC) or 1 (ASC)", direction)
+			if direction == ASC || direction == DESC {
+				c.Direction = direction
+			} else {
+				errors = append(errors, fmt.Errorf("'%s' in not a supported direction, use 0 (DESC) or 1 (ASC)", direction))
+			}
 		}
 	}
-	return c, nil
+	return c, errors
 }
 
 func (p *Pagination) lastItemIndex(items []Item) int {
@@ -120,12 +125,10 @@ func NewPagination(cursor, defaults Cursor) *Pagination {
 	return &Pagination{cursor, defaults}
 }
 
-func NewPaginationFromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, error) {
-	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
-	if err != nil {
-		return nil, err
-	}
-	return NewPagination(cursor, defaults), nil
+func NewPaginationFromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, []error) {
+	cursor, errors := NewCursorFromQuery(rawurl.RawQuery)
+	return NewPagination(cursor, defaults), errors
+}
 }
 
 func (p *Pagination) after(items []Item, last, direction int) *Pagination {
