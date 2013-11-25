@@ -78,6 +78,7 @@ func (p *Pagination) lastItemIndex(items []Item) int {
 	if len(items) <= p.Count {
 		return len(items) - 1
 	} else {
+		// This is the index of the first item on the next page.
 		return p.Count
 	}
 }
