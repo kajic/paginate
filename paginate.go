@@ -120,7 +120,7 @@ func NewPagination(cursor, defaults Cursor) *Pagination {
 	return &Pagination{cursor, defaults}
 }
 
-func FromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, error) {
+func NewPaginationFromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, error) {
 	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
 	if err != nil {
 		return nil, err
