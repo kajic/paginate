@@ -28,22 +28,8 @@ type Pagination struct {
 	defaults Cursor
 }
 
-func NewCursor(defaults *Cursor) Cursor {
-	var cursor Cursor
-	if defaults == nil {
-		cursor = Cursor{}
-	} else {
-		cursor = *defaults
-	}
-
-	if cursor.Count == 0 {
-		cursor.Count = 10
-	}
-	return cursor
-}
-
-	c := NewCursor(nil)
 func NewCursorFromQuery(query string) (Cursor, []error) {
+	c := Cursor{}
 	errors := []error{}
 	m, err := url.ParseQuery(query)
 	if err != nil {
@@ -107,14 +93,18 @@ func (p *Pagination) equalCount(items []Item, lastItemIndex int) int {
 }
 
 func NewPagination(cursor, defaults Cursor) *Pagination {
+	if defaults.Count == 0 {
+		defaults.Count = 10
+	}
+	if cursor.Count == 0 {
+		cursor.Count = defaults.Count
+	}
+
 	if cursor.Value == "" {
 		cursor.Value = defaults.Value
 	}
 	if cursor.Offset == 0 {
 		cursor.Offset = defaults.Offset
-	}
-	if cursor.Count == 0 {
-		cursor.Count = defaults.Count
 	}
 	if cursor.Order == "" {
 		cursor.Order = defaults.Order
@@ -122,6 +112,7 @@ func NewPagination(cursor, defaults Cursor) *Pagination {
 	if cursor.Direction == 0 {
 		cursor.Direction = defaults.Direction
 	}
+
 	return &Pagination{cursor, defaults}
 }
 
