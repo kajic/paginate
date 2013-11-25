@@ -120,6 +120,9 @@ func NewPaginationFromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, []erro
 	cursor, errors := NewCursorFromQuery(rawurl.RawQuery)
 	return NewPagination(cursor, defaults), errors
 }
+
+func NewPaginationFromDefaults(defaults Cursor) *Pagination {
+	return NewPagination(Cursor{}, defaults)
 }
 
 func (p *Pagination) after(items []Item, last, direction int) *Pagination {
