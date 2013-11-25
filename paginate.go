@@ -77,7 +77,7 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 		if direction == ASC || direction == DESC {
 			c.Direction = direction
 		} else {
-			return c, fmt.Errorf("'%s' in not a supported direction, use -1 (ASC) or 1 (DESC)", direction)
+			return c, fmt.Errorf("'%s' in not a supported direction, use 0 (DESC) or 1 (ASC)", direction)
 		}
 	}
 	return c, nil
