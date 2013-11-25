@@ -7,8 +7,8 @@ import (
 )
 
 const (
+	DESC = 0
 	ASC  = 1
-	DESC = -1
 )
 
 type Item interface {
@@ -38,9 +38,6 @@ func NewCursor(defaults *Cursor) Cursor {
 
 	if cursor.Count == 0 {
 		cursor.Count = 10
-	}
-	if cursor.Direction == 0 {
-		cursor.Direction = DESC
 	}
 	return cursor
 }
@@ -145,8 +142,14 @@ func (p *Pagination) after(items []Item, last, direction int) *Pagination {
 }
 
 func (p *Pagination) Prev(items []Item) *Pagination {
-	min := 0
-	return p.after(items, min, p.Direction*-1)
+	lastItemIndex := 0
+	var newDirection int
+	if p.Direction == ASC {
+		newDirection = DESC
+	} else {
+		newDirection = ASC
+	}
+	return p.after(items, lastItemIndex, newDirection)
 }
 
 func (p *Pagination) Next(items []Item, next_page_prefetched bool) *Pagination {
