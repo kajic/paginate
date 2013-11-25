@@ -119,7 +119,7 @@ func (p *Pagination) equalCount(items []Item, lastItemIndex int) int {
 	return c
 }
 
-func NewPagination(cursor, defaults Cursor) *Pagination {
+func newPagination(cursor, defaults Cursor) *Pagination {
 	if defaults.Count == 0 {
 		defaults.Count = 10
 	}
@@ -143,13 +143,17 @@ func NewPagination(cursor, defaults Cursor) *Pagination {
 	return &Pagination{cursor, defaults}
 }
 
+func NewPagination() *Pagination {
+	return newPagination(Cursor{}, Cursor{})
+}
+
 func NewPaginationFromUrl(rawurl *url.URL, defaults *Cursor) (*Pagination, error) {
 	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
-	return NewPagination(cursor, *defaults), err
+	return newPagination(cursor, *defaults), err
 }
 
 func NewPaginationFromDefaults(defaults Cursor) *Pagination {
-	return NewPagination(Cursor{}, defaults)
+	return newPagination(Cursor{}, defaults)
 }
 
 func (p *Pagination) after(items []Item, last, direction int) *Pagination {
@@ -162,7 +166,7 @@ func (p *Pagination) after(items []Item, last, direction int) *Pagination {
 		offset += p.Offset
 	}
 	cursor := Cursor{value, offset, p.Count, p.Order, direction}
-	return NewPagination(cursor, p.defaults)
+	return newPagination(cursor, p.defaults)
 }
 
 func (p *Pagination) Prev(its interface{}) (*Pagination, error) {
