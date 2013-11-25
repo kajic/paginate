@@ -48,13 +48,13 @@ type Pagination struct {
 	defaults Cursor
 }
 
-func NewCursorFromQuery(query string) (Cursor, []error) {
+func NewCursorFromQuery(query string) (Cursor, error) {
 	c := Cursor{}
 	errors := []error{}
 	m, err := url.ParseQuery(query)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("error when parsing url query string %s: %s", query, err))
-		return c, errors
+		errors = append(errors)
+		goto exit
 	}
 
 	if v, ok := m["value"]; ok {
@@ -91,7 +91,13 @@ func NewCursorFromQuery(query string) (Cursor, []error) {
 			}
 		}
 	}
-	return c, errors
+
+exit:
+	if len(errors) == 0 {
+		return c, nil
+	} else {
+		return c, fmt.Errorf("errors while parsing query string %s: %s", query, errors)
+	}
 }
 
 func (p *Pagination) lastItemIndex(items []Item) int {
@@ -137,9 +143,9 @@ func NewPagination(cursor, defaults Cursor) *Pagination {
 	return &Pagination{cursor, defaults}
 }
 
-func NewPaginationFromUrl(rawurl *url.URL, defaults Cursor) (*Pagination, []error) {
-	cursor, errors := NewCursorFromQuery(rawurl.RawQuery)
-	return NewPagination(cursor, defaults), errors
+func NewPaginationFromUrl(rawurl *url.URL, defaults *Cursor) (*Pagination, error) {
+	cursor, err := NewCursorFromQuery(rawurl.RawQuery)
+	return NewPagination(cursor, *defaults), err
 }
 
 func NewPaginationFromDefaults(defaults Cursor) *Pagination {
