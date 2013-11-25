@@ -83,7 +83,7 @@ func NewCursorFromQuery(query string) (Cursor, error) {
 	return c, nil
 }
 
-func (p *Pagination) max(items []Item) int {
+func (p *Pagination) lastItemIndex(items []Item) int {
 	if len(items) <= p.Count {
 		return len(items) - 1
 	} else {
@@ -91,10 +91,10 @@ func (p *Pagination) max(items []Item) int {
 	}
 }
 
-func (p *Pagination) equalCount(items []Item, max int) int {
+func (p *Pagination) equalCount(items []Item, lastItemIndex int) int {
 	c := 0
 	for i := 0; i < p.Count; i++ {
-		if items[i].PaginationValue(p) == items[max].PaginationValue(p) {
+		if items[i].PaginationValue(p) == items[lastItemIndex].PaginationValue(p) {
 			c += 1
 		}
 	}
@@ -156,8 +156,7 @@ func (p *Pagination) Next(items []Item, next_page_prefetched bool) *Pagination {
 	if next_page_prefetched && len(items) <= p.Count {
 		return nil
 	}
-	max := p.max(items)
-	return p.after(items, max, p.Direction)
+	return p.after(items, p.lastItemIndex(items), p.Direction)
 }
 
 func (p *Pagination) ToUrl(baseurl *url.URL) (*url.URL, error) {
