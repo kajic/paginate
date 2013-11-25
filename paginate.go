@@ -3,6 +3,7 @@ package paginate
 import (
 	"fmt"
 	"net/url"
+	"reflect"
 	"strconv"
 )
 
@@ -13,6 +14,25 @@ const (
 
 type Item interface {
 	PaginationValue(p *Pagination) string
+}
+
+func ConvertToItems(its interface{}) ([]Item, error) {
+	itsValue := reflect.ValueOf(its)
+	itsKind := itsValue.Kind()
+	if itsKind != reflect.Array && itsKind != reflect.Slice {
+		return nil, fmt.Errorf("Expected items to be an Array or a Slice, got %s", itsKind)
+	}
+	itsLength := itsValue.Len()
+	items := make([]Item, itsLength)
+	for i := 0; i < itsLength; i++ {
+		itsItem := itsValue.Index(i)
+		if item, ok := itsItem.Interface().(Item); ok {
+			items[i] = item
+		} else {
+			return nil, fmt.Errorf("item #%d does not implement the Item interface: %s", i, itsItem)
+		}
+	}
+	return items, nil
 }
 
 type Cursor struct {
@@ -139,7 +159,11 @@ func (p *Pagination) after(items []Item, last, direction int) *Pagination {
 	return NewPagination(cursor, p.defaults)
 }
 
-func (p *Pagination) Prev(items []Item) *Pagination {
+func (p *Pagination) Prev(its interface{}) (*Pagination, error) {
+	items, err := ConvertToItems(its)
+	if err != nil {
+		return nil, err
+	}
 	lastItemIndex := 0
 	var newDirection int
 	if p.Direction == ASC {
@@ -147,14 +171,18 @@ func (p *Pagination) Prev(items []Item) *Pagination {
 	} else {
 		newDirection = ASC
 	}
-	return p.after(items, lastItemIndex, newDirection)
+	return p.after(items, lastItemIndex, newDirection), nil
 }
 
-func (p *Pagination) Next(items []Item, next_page_prefetched bool) *Pagination {
-	if next_page_prefetched && len(items) <= p.Count {
-		return nil
+func (p *Pagination) Next(its interface{}, next_page_prefetched bool) (*Pagination, error) {
+	items, err := ConvertToItems(its)
+	if err != nil {
+		return nil, err
 	}
-	return p.after(items, p.lastItemIndex(items), p.Direction)
+	if next_page_prefetched && len(items) <= p.Count {
+		return nil, nil
+	}
+	return p.after(items, p.lastItemIndex(items), p.Direction), nil
 }
 
 func (p *Pagination) ToUrl(baseurl *url.URL) (*url.URL, error) {
