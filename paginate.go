@@ -48,6 +48,10 @@ type Pagination struct {
 	defaults Cursor
 }
 
+type Response struct {
+	Next *string `json:"next"`
+}
+
 func NewCursorFromQuery(query string) (Cursor, error) {
 	c := Cursor{}
 	errors := []error{}
@@ -211,4 +215,13 @@ func (p *Pagination) ToUrl(baseurl *url.URL) (*url.URL, error) {
 	}
 	newurl.RawQuery = query.Encode()
 	return newurl, nil
+}
+
+func (p *Pagination) ToResponse(baseurl *url.URL) (*Response, error) {
+	nextUrl, err := p.ToUrl(baseurl)
+	if err != nil {
+		return nil, err
+	}
+	nextAddr := nextUrl.String()
+	return &Response{&nextAddr}, nil
 }
