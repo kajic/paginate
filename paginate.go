@@ -8,6 +8,8 @@ import (
 const (
 	DESC = 0
 	ASC  = 1
+
+	DEFAULT_COUNT = 10
 )
 
 type Cursor struct {
@@ -24,7 +26,7 @@ func NewCursorFromDefaults(c *Cursor) *Cursor {
 		c = &Cursor{}
 	}
 	if c.Count == 0 {
-		c.Count = 10
+		c.Count = DEFAULT_COUNT
 	}
 	return c
 }
