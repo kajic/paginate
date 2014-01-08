@@ -20,9 +20,9 @@ func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	cursor := paginate.NewCursorFromUrl(r.URL, defaults, options)
 
 	// 2. Fetch data based on cursor.
-  // Note: Use cursor.PrefetchCount() instead of cursor.Count if the cursor was
-  // created with the Prefetch option set to true.
-  comments := ...
+	// Note: Use cursor.PrefetchCount() instead of cursor.Count if the cursor was
+	// created with the Prefetch option set to true.
+	comments := ...
 
 	// 3. Pass data to cursor so that it can generate the next and previous cursors.
 	items := make([]paginate.Item, len(comments))
