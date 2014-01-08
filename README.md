@@ -24,7 +24,7 @@ func commentsHandler(w http.ResponseWriter, r *http.Request) {
   // created with the Prefetch option set to true.
   comments := ...
 
-  // 3. Pass data to cursor so that it can generate the next and previous cursors.
+	// 3. Pass data to cursor so that it can generate the next and previous cursors.
 	items := make([]paginate.Item, len(comments))
 	for i, comment := range comments {
 		items[i] = comment
@@ -32,8 +32,8 @@ func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	cursor.Items = items
 
 	// 3.5. (Optional) Drop extra comment that was prefetched for pagination.
-  // This is only necessary when the cursor is created with the Prefetch
-  // option.
+	// This is only necessary when the cursor is created with the Prefetch
+	// option.
 	if len(comments) > cursor.Count {
 		comments = comments[0:cursor.Count]
 	}
