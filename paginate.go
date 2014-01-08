@@ -82,7 +82,7 @@ func (c *Cursor) lastItemIndex(items []Item) int {
 
 func (c *Cursor) equalCount(items []Item, lastItemIndex int) int {
 	count := 0
-	for i := 0; i < c.Count; i++ {
+	for i := 0; i < len(items) && i < c.Count; i++ {
 		if items[i].PaginationValue(c) == items[lastItemIndex].PaginationValue(c) {
 			count += 1
 		}
