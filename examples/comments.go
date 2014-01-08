@@ -17,7 +17,7 @@ type Comment struct {
 	updated_at int
 }
 
-func (c *Comment) PaginationValue(p *paginate.Pagination) string {
+func (c *Comment) PaginationValue(p *paginate.Cursor) string {
 	switch {
 	case p.Order == "created_at":
 		return strconv.Itoa(c.created_at)
@@ -36,20 +36,20 @@ func OpenDatabase(driver, addr string) (*sql.DB, error) {
 	return db, db.Ping()
 }
 
-func GetComments(p *paginate.Pagination) ([]*Comment, error) {
+func GetComments(cursor *paginate.Cursor) ([]*Comment, error) {
 	var where string
-	if p.Direction == paginate.ASC {
-		where = fmt.Sprintf("%s >= %s", p.Order, p.Value)
+	if cursor.Direction == paginate.ASC {
+		where = fmt.Sprintf("%s >= %s", cursor.Order, cursor.Value)
 	} else {
-		where = fmt.Sprintf("%s <= %s", p.Order, p.Value)
+		where = fmt.Sprintf("%s <= %s", cursor.Order, cursor.Value)
 	}
 	var direction string
-	if p.Direction == paginate.ASC {
+	if cursor.Direction == paginate.ASC {
 		direction = "ASC"
 	} else {
 		direction = "DESC"
 	}
-	order := fmt.Sprintf("%s %s", p.Order, direction)
+	order := fmt.Sprintf("%s %s", cursor.Order, direction)
 
 	q := `
 	SELECT text, created_at, updated_at
@@ -62,49 +62,57 @@ func GetComments(p *paginate.Pagination) ([]*Comment, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Note we fech an additional item to allow the pagination library to immedialely determine
-	// if there is a next page after the current one.
-	rows, err := db.Query(q, p.Offset, p.Count+1)
+
+	// Use PrefetchCount() to fetch one extra comment when the cursor has
+	// prefetching enabled.
+	// This allows the cursor to immediately determine if there is a next page.
+	rows, err := db.Query(q, cursor.Offset, cursor.PrefetchCount())
 	if err != nil {
 		return nil, err
 	}
 
-	var items []*Comment
+	var comments []*Comment
 	for rows.Next() {
 		var c *Comment
 		if err := rows.Scan(&c.text, &c.created_at, &c.updated_at); err != nil {
 			panic(err)
 		}
-		items = append(items, c)
+		comments = append(comments, c)
 	}
-	return items, nil
-}
 
-func commentsHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Create pagination object based on request url.
-	c := paginate.Cursor{Count: 5, Order: "updated_at", Direction: paginate.DESC}
-	p, _ := paginate.FromUrl(r.URL, c)
-
-	// 2. Query data source based on request parameters.
-	comments, _ := GetComments(p)
-
-	// 3. Create pagination urls based on returned items.
+	// Inform cursor about the fetched comments so that it can later generate the
+	// Next and Previous cursors.
 	items := make([]paginate.Item, len(comments))
 	for i, comment := range comments {
 		items[i] = comment
 	}
-	next := p.Next(items, true)
-	prev := p.Prev(items)
+	cursor.Items = items
 
-	// 4. Respond with items and pagination urls.
-	fmt.Fprint(w, comments)
-	if next != nil {
-		nexturl, _ := next.ToUrl(r.URL)
-		fmt.Fprint(w, nexturl)
+	// Drop the one extra comment that was prefetched for pagination.
+	if len(comments) > cursor.Count {
+		comments = comments[0:cursor.Count]
 	}
-	if prev != nil {
-		prevurl, _ := prev.ToUrl(r.URL)
-		fmt.Fprint(w, prevurl)
+	return comments, nil
+}
+
+func commentsHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Create cursor based on request url.
+	defaults := &paginate.Defaults{Count: 5, Order: "updated_at", Direction: paginate.DESC}
+	options := &paginate.Options{Prefetch: true}
+	cursor := paginate.NewCursorFromUrl(r.URL, defaults, options)
+
+	// 2. Fetch data based on cursor.
+	comments, _ := GetComments(cursor)
+
+	// 3. Respond with items and pagination urls.
+	fmt.Fprint(w, comments)
+	if cursor.Next() != nil {
+		next := cursor.Next().ToUrl()
+		fmt.Fprint(w, next)
+	}
+	if cursor.Prev() != nil {
+		prev := cursor.Prev().ToUrl()
+		fmt.Fprint(w, prev)
 	}
 }
 

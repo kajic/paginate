@@ -12,35 +12,97 @@ const (
 	DEFAULT_COUNT = 10
 )
 
-type Cursor struct {
+// Item is the iterface that must be implemented by objects that can be paginated.
+type Item interface {
+	// PaginationValue should return a pagination value for this item.
+	// For example, when pagination SQL rows this could simply be the id of the row.
+	// If paginating a redis zset, this might be the score of the zset member.
+	// When paginating an array this would be the index of the array element.
+	PaginationValue(c *Cursor) string
+}
+
+type Defaults struct {
 	Value     string
 	Offset    int
 	Count     int
 	Order     string
 	Direction int
-	Url       *url.URL
 }
 
-func NewCursorFromDefaults(c *Cursor) *Cursor {
-	if c == nil {
-		c = &Cursor{}
+type Options struct {
+	// Prefetch can be set to true to indicate to the cursor that Items will contain one
+	// additional item, i.e. the first item from the next page.
+	Prefetch bool
+}
+
+type Cursor struct {
+	// Value should be used an an inclusive value when making queries based on this
+	// cursor.
+	// For example, in SQL: WHERE created_at <= cursor.Value (assuming descending
+	// sort order).
+	Value string
+
+	// Offset should be as offset when making queries based on this cursor.
+	// For example, in SQL: LIMIT cursor.Offset, 10.
+	Offset int
+
+	// Count is the number of items per page. Instead of using this directly you should
+	// use PrefetchCount() to account for prefetching.
+	// For example, in SQL: LIMIT 0, cursor.PrefetchCount()
+	Count int
+
+	// Order is an arbitrary string that should be used by Item.PaginationValue to
+	// decide what pagination value to return.
+	Order string
+
+	// Direction should control the comparison order when making queries based on this
+	// cursor.
+	// For example, in SQL:
+	// when Direction is DESC: WHERE created_at <= cursor.Value
+	// when Direction is ASC:  WHERE created_at >= cursor.Value
+	Direction int
+
+	// Url is the url that was used to create this cursor. It's used to construct the
+	// next and previous urls.
+	Url *url.URL
+
+	Options *Options
+
+	// Items is a slice of Item objects on which we should paginate. It must be set before
+	// calling Next, Prev or ToPagination.
+	Items []Item
+}
+
+func NewCursorFromDefaultsAndOptions(defaults *Defaults, options *Options) *Cursor {
+	c := &Cursor{}
+
+	if defaults != nil {
+		c.Value = defaults.Value
+		c.Offset = defaults.Offset
+		c.Count = defaults.Count
+		c.Order = defaults.Order
+		c.Direction = defaults.Direction
 	}
+
 	if c.Count == 0 {
 		c.Count = DEFAULT_COUNT
 	}
+
+	if options != nil {
+		c.Options = options
+	} else {
+		c.Options = &Options{}
+	}
+
 	return c
 }
 
-type Item interface {
-	PaginationValue(c *Cursor) string
-}
-
-type Response struct {
+type Pagination struct {
 	Next *string `json:"next"`
 }
 
-func NewCursorFromUrl(u *url.URL, defaults *Cursor) *Cursor {
-	c := NewCursorFromDefaults(defaults)
+func NewCursorFromUrl(u *url.URL, defaults *Defaults, options *Options) *Cursor {
+	c := NewCursorFromDefaultsAndOptions(defaults, options)
 	c.Url = u
 
 	values := u.Query()
@@ -90,19 +152,30 @@ func (c *Cursor) equalCount(items []Item, lastItemIndex int) int {
 	return count
 }
 
-func (c *Cursor) after(items []Item, last, direction int) *Cursor {
+func (c *Cursor) after(items []Item, lastItemIndex, direction int) *Cursor {
+	if items == nil {
+		return nil
+	}
 	if len(items) == 0 {
 		return nil
 	}
-	value := items[last].PaginationValue(c)
-	offset := c.equalCount(items, last)
+	value := items[lastItemIndex].PaginationValue(c)
+	offset := c.equalCount(items, lastItemIndex)
 	if offset == c.Count && value == c.Value {
 		offset += c.Offset
 	}
-	return &Cursor{value, offset, c.Count, c.Order, direction, c.Url}
+	return &Cursor{value, offset, c.Count, c.Order, direction, c.Url, c.Options, nil}
 }
 
-func (c *Cursor) Prev(items []Item) *Cursor {
+func (c *Cursor) PrefetchCount() int {
+	if c.Options.Prefetch {
+		return c.Count + 1
+	} else {
+		return c.Count
+	}
+}
+
+func (c *Cursor) Prev() *Cursor {
 	lastItemIndex := 0
 	var newDirection int
 	if c.Direction == ASC {
@@ -110,14 +183,14 @@ func (c *Cursor) Prev(items []Item) *Cursor {
 	} else {
 		newDirection = ASC
 	}
-	return c.after(items, lastItemIndex, newDirection)
+	return c.after(c.Items, lastItemIndex, newDirection)
 }
 
-func (c *Cursor) Next(items []Item, nextPagePrefetched bool) *Cursor {
-	if nextPagePrefetched && len(items) <= c.Count {
+func (c *Cursor) Next() *Cursor {
+	if c.Options.Prefetch && len(c.Items) <= c.Count {
 		return nil
 	}
-	return c.after(items, c.lastItemIndex(items), c.Direction)
+	return c.after(c.Items, c.lastItemIndex(c.Items), c.Direction)
 }
 
 func (c *Cursor) ToUrl() *url.URL {
@@ -132,12 +205,14 @@ func (c *Cursor) ToUrl() *url.URL {
 	return &newUrl
 }
 
-func (c *Cursor) ToResponse(items []Item, nextPagePrefetched bool) *Response {
-	response := &Response{}
-	next := c.Next(items, nextPagePrefetched)
-	if next != nil {
-		nextUrlString := next.ToUrl().String()
-		response.Next = &nextUrlString
+func (c *Cursor) ToPagination() *Pagination {
+	pagination := &Pagination{}
+	if c.Items != nil {
+		next := c.Next()
+		if next != nil {
+			nextUrlString := next.ToUrl().String()
+			pagination.Next = &nextUrlString
+		}
 	}
-	return response
+	return pagination
 }
